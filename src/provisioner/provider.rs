@@ -50,10 +50,15 @@ impl Provider {
         Ok(result)
     }
 
-    pub fn get_cheapest_instance_type(self) -> anyhow::Result<ServerType> {
-        let mut result = Provider::get_options_for_all_zones::<ServerType>(&self.zones, |z| {
-            self.api.get_server_types(z)
-        })?;
+    pub fn get_instance_types(self) -> anyhow::Result<Vec<ServerType>> {
+        let mut result: Vec<ServerType> =
+            Provider::get_options_for_all_zones::<ServerType>(&self.zones, |z| {
+                self.api.get_server_types(z)
+            })?
+            .into_iter()
+            .filter(|s| s.monthly_price.is_some())
+            .collect();
+
         result.sort_by(|a, b| {
             a.monthly_price
                 .unwrap()
@@ -61,6 +66,6 @@ impl Provider {
         });
 
         assert!(!result.is_empty(), "Failed to get instances from Scaleway");
-        Ok(result.remove(0))
+        Ok(result)
     }
 }
