@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use scaleway_rs::{ScalewayApi, ScalewayError, ScalewayImage, ScalewayInstance, ServerType};
+use scaleway_rs::{
+    ScalewayApi, ScalewayError, ScalewayImage, ScalewayInstance, ScalewayVolume, ServerType,
+};
 
 use crate::provisioner::traits::has_id::HasId;
 
@@ -82,6 +84,10 @@ impl Provider {
             .expect(&format!("Could not find instance with ID: {}", instance_id)))
     }
 
+    pub fn get_volumes(&self) -> anyhow::Result<Vec<ScalewayVolume>> {
+        Provider::get_options_for_all_zones(&self.zones, |z| self.api.list_volumes(z).run())
+    }
+
     pub fn create_instance(
         &mut self,
         zone: &str,
@@ -115,8 +121,9 @@ impl Provider {
             );
             return Ok(());
         }
+        let instance = instance.unwrap();
 
-        if instance.unwrap().state != "stopped" {
+        if instance.state != "stopped" {
             match self.api.perform_instance_action(
                 zone,
                 server_id,
@@ -129,11 +136,23 @@ impl Provider {
 
         match self.api.delete_instance(zone, server_id) {
             Ok(_) => {
+                println!("Instance deleted: {}", instance.id);
                 self.instances.remove(server_id);
                 Ok(())
             }
             Err(err) => Err(err.into()),
         }
+    }
+
+    pub fn cleanup_detached_volumes(&self) -> anyhow::Result<()> {
+        self.get_volumes()?
+            .iter()
+            .filter(|v| v.server.is_none())
+            .for_each(|v| match self.api.delete_volume(&v.zone, &v.id) {
+                Ok(_) => println!("Volume deleted: {}, {}", v.name, v.id),
+                Err(err) => eprintln!("Failed to delete volume={}: {}", v.id, err),
+            });
+        Ok(())
     }
 
     fn find_matching_image<'a>(

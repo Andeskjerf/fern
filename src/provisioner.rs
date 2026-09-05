@@ -47,6 +47,7 @@ impl Provisioner {
             if let Ok(id) = instance_id {
                 println!("Success!\n{:?}\nCleaning up", id);
                 provider.cleanup_instance(&instance.location, &id)?;
+                provider.cleanup_detached_volumes()?;
                 break;
             } else {
                 println!(

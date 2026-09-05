@@ -13,3 +13,9 @@ impl HasId for scaleway_rs::ScalewayImage {
         &self.id
     }
 }
+
+impl HasId for scaleway_rs::ScalewayVolume {
+    fn id(&self) -> &str {
+        &self.id
+    }
+}
