@@ -137,6 +137,7 @@ impl Provider {
         match self.api.delete_instance(zone, server_id) {
             Ok(_) => {
                 println!("Instance deleted: {}", instance.id);
+                self.cleanup_detached_volumes()?;
                 self.instances.remove(server_id);
                 Ok(())
             }
