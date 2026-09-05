@@ -48,7 +48,7 @@ impl Provider {
         Ok(result.into_values().collect::<Vec<T>>())
     }
 
-    pub fn get_images(&self) -> anyhow::Result<Vec<ScalewayImage>> {
+    fn get_images(&self) -> anyhow::Result<Vec<ScalewayImage>> {
         let mut result = Provider::get_options_for_all_zones::<ScalewayImage>(&self.zones, |z| {
             self.api.list_images(z).run()
         })?;

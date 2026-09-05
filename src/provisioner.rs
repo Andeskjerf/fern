@@ -1,3 +1,5 @@
+use scaleway_rs::ServerType;
+
 use crate::provisioner::provider::Provider;
 
 mod provider;
@@ -5,30 +7,30 @@ mod traits;
 
 pub struct Provisioner {
     provider: Provider,
-    worker_ips: Vec<u16>,
-    controller_ip: Option<u16>,
+    worker_instance_ids: Vec<String>,
+    controller_instance_id: Option<String>,
 }
 
 impl Provisioner {
     pub fn new() -> Self {
         Self {
             provider: Provider::new(),
-            worker_ips: vec![],
-            controller_ip: Option::None,
+            worker_instance_ids: vec![],
+            controller_instance_id: Option::None,
         }
     }
 
-    pub fn get_worker_ips(self) -> Vec<u16> {
-        self.worker_ips
-    }
-
-    pub fn get_controller_ip(self) -> Option<u16> {
-        self.controller_ip
-    }
-
-    pub fn create_instance(&mut self) -> anyhow::Result<()> {
+    pub fn create_instance(&mut self, instance_type: Option<&str>) -> anyhow::Result<()> {
         let provider = &mut self.provider;
-        let mut instances = provider.get_instance_types()?;
+        // TODO: should be a generic
+        let mut instances: Vec<ServerType> = vec![];
+        if instance_type.is_none() {
+            instances.append(&mut provider.get_instance_types()?);
+        } else {
+            instances.append(&mut vec![
+                provider.get_instance_type(instance_type.unwrap())?,
+            ])
+        }
 
         loop {
             if instances.is_empty() {

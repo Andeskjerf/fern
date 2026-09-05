@@ -8,8 +8,7 @@ fn main() -> anyhow::Result<()> {
     // let cheapest_instance = provisioner.provider().get_cheapest_instance_type()?;
     // println!("{:?}", cheapest_instance);
 
-    provisioner.create_instance()?;
-
+    provisioner.create_instance(None)?;
 
     Ok(())
 }
