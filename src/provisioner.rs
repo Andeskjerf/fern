@@ -31,6 +31,10 @@ impl Provisioner {
         let mut instances = provider.get_instance_types()?;
 
         loop {
+            if instances.is_empty() {
+                panic!("Failed to create instance, no more instance options left");
+            }
+
             // we get the first, that's the cheapest one
             let instance = instances.remove(0);
 
@@ -51,10 +55,6 @@ impl Provisioner {
                     "Failed to create instance with ID={}, trying next option",
                     instance.id
                 )
-            }
-
-            if instances.is_empty() {
-                panic!("Failed to create instance, no more instance options left");
             }
         }
 

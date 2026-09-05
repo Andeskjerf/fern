@@ -91,7 +91,7 @@ impl Provider {
         arch: &str,
     ) -> anyhow::Result<String> {
         let valid_images = self.get_images()?;
-        Provider::has_image_in_list(&valid_images, image_name);
+        Provider::assert_image_in_list(&valid_images, image_name);
         let image = Provider::find_matching_image(&valid_images, zone, image_name, arch);
 
         let instance = self
@@ -127,11 +127,13 @@ impl Provider {
             }
         }
 
-        let delete = self.api.delete_instance(zone, server_id);
-        if delete.is_err() == true {
-            println!("Failed to delete instance: {}", delete.unwrap_err());
+        match self.api.delete_instance(zone, server_id) {
+            Ok(_) => {
+                self.instances.remove(server_id);
+                Ok(())
+            }
+            Err(err) => Err(err.into()),
         }
-        Ok(())
     }
 
     fn find_matching_image<'a>(
@@ -151,7 +153,7 @@ impl Provider {
             })
     }
 
-    fn has_image_in_list(valid_images: &[ScalewayImage], image_name: &str) {
+    fn assert_image_in_list(valid_images: &[ScalewayImage], image_name: &str) {
         if !valid_images.iter().any(|i| i.name == image_name) {
             panic!(
                 "image={}. Image was not found in provider list of valid images",
