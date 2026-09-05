@@ -23,14 +23,10 @@ impl Provisioner {
     pub fn create_instance(&mut self, instance_type: Option<&str>) -> anyhow::Result<()> {
         let provider = &mut self.provider;
         // TODO: should be a generic
-        let mut instances: Vec<ServerType> = vec![];
-        if instance_type.is_none() {
-            instances.append(&mut provider.get_instance_types()?);
-        } else {
-            instances.append(&mut vec![
-                provider.get_instance_type(instance_type.unwrap())?,
-            ])
-        }
+        let mut instances: Vec<ServerType> = match instance_type.is_none() {
+            true => provider.get_instance_types()?,
+            false => vec![provider.get_instance_type(instance_type.unwrap())?],
+        };
 
         loop {
             if instances.is_empty() {
