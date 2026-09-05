@@ -1,6 +1,7 @@
 use crate::provisioner::provider::Provider;
 
 mod provider;
+mod traits;
 
 pub struct Provisioner {
     provider: Provider,
