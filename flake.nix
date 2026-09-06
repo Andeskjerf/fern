@@ -44,6 +44,22 @@
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
         };
+
+        nixosConfigurations.fern-worker = nixpkgs.lib.nixosSystem {
+          system = "${system}";
+          modules = [ 
+            ./nixos/fern-worker.nix
+            { nixpkgs.hostPlatform = system; }
+          ];
+          specialArgs = { inherit (self.packages.${system}) default; };
+        };
+
+        packages = {
+          inherit (self.nixosConfigurations.${system}.fern-worker.config.system.build) image;
+          run-image = pkgs.callPackage ./run-image.nix {
+            inherit (self.nixosConfigurations.${system}.fern-worker.config.system.build) image;
+          };
+        };
       }
     );
 }
