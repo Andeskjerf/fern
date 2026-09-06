@@ -24,7 +24,7 @@ writeShellScriptBin "repart-image-qemu" ''
     --enable-kvm \
     -cpu host \
     -bios "${OVMF.fd}/FV/OVMF.fd" \
-    -hda "$DISK_IMAGE" \
+    -drive file="$DISK_IMAGE",format=raw,if=virtio \
     -serial stdio \
     -display gtk
 ''

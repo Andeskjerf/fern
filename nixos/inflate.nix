@@ -1,6 +1,6 @@
 {
   boot.initrd.systemd.repart.enable = true;
-  boot.initrd.systemd.repart.device = "/dev/sda";
+  boot.initrd.systemd.repart.device = "/dev/vda";
   systemd.repart.partitions = {
     home = {
       Format = "ext4";
