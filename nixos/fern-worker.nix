@@ -7,6 +7,7 @@
 }:
 {
   imports = [
+    (modulesPath + "/profiles/minimal.nix")
     (modulesPath + "/profiles/image-based-appliance.nix")
     (modulesPath + "/profiles/perlless.nix")
     ./filesystems.nix
