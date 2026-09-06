@@ -8,14 +8,13 @@
 writeShellScriptBin "repart-image-qemu" ''
   set -euo pipefail
 
-  DISK_IMAGE="demo-disk.raw"
+  mkdir -p images
+  DISK_IMAGE="images/worker-overlay.qcow2"
 
-  if [[ ! -f "$DISK_IMAGE" || "$(cat .image-version 2>/dev/null)" != "${image}" ]]; then
-    rm -f "$DISK_IMAGE"
-    cp ${image}/image.raw "$DISK_IMAGE"
-    chmod +w "$DISK_IMAGE"
-    ${qemu}/bin/qemu-img resize -f raw "$DISK_IMAGE" "+10G"
-    echo -n "${image}" > .image-version
+  if [[ ! -f "$DISK_IMAGE" ]]; then
+    ${qemu}/bin/qemu-img create -f qcow2 \
+      -b ${image}/image.raw -F raw $DISK_IMAGE
+      ${qemu}/bin/qemu-img resize -f qcow2 "$DISK_IMAGE" "+10G"
   fi
 
   ${qemu}/bin/qemu-system-x86_64 \
@@ -24,7 +23,7 @@ writeShellScriptBin "repart-image-qemu" ''
     --enable-kvm \
     -cpu host \
     -bios "${OVMF.fd}/FV/OVMF.fd" \
-    -drive file="$DISK_IMAGE",format=raw,if=virtio \
+    -drive file="$DISK_IMAGE",format=qcow2,if=virtio \
     -serial stdio \
     -display gtk
 ''
