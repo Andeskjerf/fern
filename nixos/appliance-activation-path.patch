@@ -1,0 +1,35 @@
+--- a/nixos/modules/system/activation/activation-script.nix
++++ b/nixos/modules/system/activation/activation-script.nix
+@@ -18,7 +18,7 @@
+         #### Activation script snippet ${a}:
+         _localstatus=0
+         ${v.text}
+-        if (( _localstatus > 0 )); then
++        if [ "$_localstatus" -gt 0 ]; then
+           printf "Activation script snippet '%s' failed (%s)\n" "${a}" "$_localstatus"
+         fi
+       '';
+@@ -62,5 +62,5 @@
+       _status=0
+-      trap "_status=1 _localstatus=\$?" ERR
+-
+-      # Ensure a consistent umask.
++      # ERR traps are a bash-ism (busybox ash, the only shell in the image,
++      # rejects them); run everything with set -e so failures are loud
++      set -e
+       umask 0022
+@@ -84,13 +84,5 @@
+   path =
+     with pkgs;
+-    map getBin [
+-      coreutils
+-      gnugrep
+-      findutils
+-      getent
+-      stdenv.cc.libc # nscd in update-users-groups.pl
+-      shadow
+-      util-linux # needed for mount and mountpoint
+-    ];
++    map getBin [ pkgsStatic.busybox ];
+ 
+   scriptType =
