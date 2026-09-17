@@ -15,6 +15,46 @@ let
   # (and its glibc closure) out of the image entirely
   sh = "${initBusybox}/bin/sh";
 
+  # udhcpc event hook (replaces the glibc-linked dhcpcd): busybox udhcpc
+  # calls it with $1 in deconfig|bound|renew and lease details in env vars.
+  # /run/resolv.conf is the writable side of the bind-mount over the
+  # read-only /etc/resolv.conf (see net-run)
+  udhcpcHook = pkgs.writeScript "udhcpc-hook" ''
+    #!${sh}
+    case "$1" in
+      deconfig)
+        ifconfig "$interface" 0.0.0.0
+        ;;
+      bound|renew)
+        ifconfig "$interface" "$ip" netmask "''${subnet:-${
+          lib.concatMapStringsSep "." toString [
+            255
+            255
+            255
+            0
+          ]
+        }}"
+        while route del default dev "$interface" 2>/dev/null; do :; done
+        for r in ''${router:-}; do
+          route add default gw "$r" dev "$interface"
+        done
+        : > /run/resolv.conf
+        for d in ''${dns:-}; do
+          echo "nameserver $d" >> /run/resolv.conf
+        done
+        # lease with no resolver info: fall back to the static qemu resolver
+        [ -s /run/resolv.conf ] || echo "nameserver ${
+          lib.concatMapStringsSep "." toString [
+            10
+            0
+            2
+            3
+          ]
+        }" > /run/resolv.conf
+        ;;
+    esac
+  '';
+
   # PID1 for the initrd-free boot: the kernel mounts the read-only squashfs
   # root directly and fern-init pivots into a tmpfs with the store mounted
   # inside, mirroring what not-os stage 1 did, then hands over to stage 2.
@@ -182,14 +222,6 @@ in
   # requiredPackages (util-linux, iproute2)
   environment.systemPackages = lib.mkForce [
     fern
-    # nixpkgs patchShebangs points dhcpcd-run-hooks at bash, pinning the
-    # glibc closure into the image; upstream hooks are POSIX sh, so rewrite
-    # the shebang to the static busybox
-    (pkgs.dhcpcd.overrideAttrs (old: {
-      postFixup = (old.postFixup or "") + ''
-        sed -i "1s|.*|#!${initBusybox}/bin/sh|" $out/libexec/dhcpcd-run-hooks
-      '';
-    }))
     pkgs.pkgsStatic.busybox
     pkgs.runit
   ];
@@ -210,20 +242,15 @@ in
           2
           3
         ];
-      "dhcpcd.conf".text = ''
-        hostname fern
-        interface eth0
-      '';
     }
     {
       "service/net/run".source = pkgs.writeScript "net-run" ''
         #!${sh}
-        mkdir -p /var/run/dhcpcd
-        # dhcpcd hooks update /etc/resolv.conf, which sits on the read-only
+        # dhcpcd hooks updated /etc/resolv.conf, which sits on the read-only
         # etc mount; bind a writable file over it so leases reach the resolver
         touch /run/resolv.conf
         mount --bind /run/resolv.conf /etc/resolv.conf
-        exec dhcpcd -B eth0
+        exec udhcpc -f -i eth0 -s ${udhcpcHook}
       '';
       "service/fern/run".source = pkgs.writeScript "fern-run" ''
         #!${sh}
