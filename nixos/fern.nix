@@ -1,5 +1,10 @@
 { fern }:
-{ pkgs, lib, ... }:
+{
+  pkgs,
+  lib,
+  config,
+  ...
+}:
 {
   # read-only squashfs store: no nix daemon, no overlayfs
   not-os.nix = false;
@@ -80,4 +85,21 @@
       "service/nix/run".enable = false;
     }
   ];
+
+  # replaces the scaffold's perl setup-etc: / is a fresh tmpfs at boot, so
+  # mirroring the etc tree is all the activation needs — real writable dirs
+  # (runsv needs to create supervise/ inside service dirs) and files symlinked
+  # through /etc/static; keeps perl out of the image
+  system.activationScripts.etc = lib.mkForce (
+    lib.stringAfter [ "users" "groups" ] ''
+      TREE="${config.system.build.etc}/etc"
+      ln -sfn "$TREE" /etc/static
+      find "$TREE" -mindepth 1 -type d | while read -r dir; do
+        mkdir -p "/etc/''${dir#"$TREE"/}"
+      done
+      find "$TREE" -mindepth 1 ! -type d | while read -r file; do
+        ln -sfn "/etc/static/''${file#"$TREE"/}" "/etc/''${file#"$TREE"/}"
+      done
+    ''
+  );
 }

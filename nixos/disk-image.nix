@@ -4,7 +4,6 @@
   initialRamdisk,
   squashfs,
   kernelParams,
-  bootMib ? 48,
 }:
 let
   syslinuxCfg = pkgs.writeText "syslinux.cfg" ''
@@ -29,21 +28,22 @@ pkgs.runCommand "fern-image"
         initialRamdisk
         squashfs
         kernelParams
-        bootMib
         ;
     };
   }
   ''
     set -euo pipefail
 
-    BOOT_SECTORS=$(( ${toString bootMib} * 1024 * 1024 / 512 ))
+    # boot partition: kernel + initrd + 4 MiB for FAT tables, ldlinux, cfg
+    BOOT_BYTES=$(( $(stat -c%s ${kernel}/bzImage) + $(stat -c%s ${initialRamdisk}/initrd) + 4 * 1024 * 1024 ))
+    BOOT_SECTORS=$(( (BOOT_BYTES + 511) / 512 ))
     BOOT_START=2048
     SQ_START=$(( BOOT_START + BOOT_SECTORS ))
     SQ_SECTORS=$(( ($(stat -c%s ${squashfs}) + 4095) / 4096 * 4096 / 512 ))
     truncate -s $(( (SQ_START + SQ_SECTORS) * 512 )) $out
 
     truncate -s $(( BOOT_SECTORS * 512 )) boot.vfat
-    mkfs.vfat -F 32 -n BOOT boot.vfat
+    mkfs.vfat -F 16 -n BOOT boot.vfat
     mcopy -i boot.vfat ${kernel}/bzImage ::bzImage
     mcopy -i boot.vfat ${initialRamdisk}/initrd ::initrd
     mcopy -i boot.vfat ${syslinuxCfg} ::syslinux.cfg
@@ -55,7 +55,7 @@ pkgs.runCommand "fern-image"
     sfdisk $out <<EOF
     label: dos
     unit: sectors
-    $BOOT_START,$BOOT_SECTORS,0c,*
+    $BOOT_START,$BOOT_SECTORS,0e,*
     $SQ_START,$SQ_SECTORS,83
     EOF
   ''
