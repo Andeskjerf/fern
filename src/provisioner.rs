@@ -39,13 +39,14 @@ impl Provisioner {
         &mut self,
         instance_name: &str,
         image_name: &str,
-        instance_type: Option<&str>,
+        instance_type: Option<String>,
+        zone: Option<String>,
     ) -> anyhow::Result<String> {
         let provider = &mut self.provider;
         // TODO: should be a generic
         let mut instances: Vec<ServerType> = match instance_type.is_none() {
-            true => provider.get_instance_types()?,
-            false => vec![provider.get_instance_type(instance_type.unwrap())?],
+            true => provider.get_instance_types(zone)?,
+            false => vec![provider.get_instance_type(&instance_type.unwrap(), zone)?],
         };
 
         loop {

@@ -63,12 +63,13 @@ impl Provider {
         Ok(result)
     }
 
-    pub fn get_instance_types(&self) -> anyhow::Result<Vec<ServerType>> {
+    pub fn get_instance_types(&self, zone: Option<String>) -> anyhow::Result<Vec<ServerType>> {
         let mut result: Vec<ServerType> =
             Provider::get_options_for_all_zones::<ServerType>(&self.zones, |z| {
                 self.api.get_server_types(z)
             })?
             .into_iter()
+            .filter(|s| zone.is_none() || zone.as_ref().is_some_and(|z| s.location == *z))
             .filter(|s| s.monthly_price.is_some())
             .collect();
 
@@ -81,9 +82,13 @@ impl Provider {
         Ok(result)
     }
 
-    pub fn get_instance_type(&self, instance_id: &str) -> anyhow::Result<ServerType> {
+    pub fn get_instance_type(
+        &self,
+        instance_id: &str,
+        zone: Option<String>,
+    ) -> anyhow::Result<ServerType> {
         Ok(self
-            .get_instance_types()?
+            .get_instance_types(zone)?
             .into_iter()
             .find(|i| i.id == instance_id)
             .expect(&format!("Could not find instance with ID: {}", instance_id)))

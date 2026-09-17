@@ -5,4 +5,10 @@ use clap::Parser;
 pub struct Args {
     #[arg(short, long)]
     pub dryrun: bool,
+
+    #[arg(short, long)]
+    pub zone: Option<String>,
+
+    #[arg(short, long)]
+    pub instance_type: Option<String>,
 }

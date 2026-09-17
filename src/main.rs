@@ -4,11 +4,12 @@ use clap::Parser;
 mod args;
 mod provisioner;
 
-fn dryrun(provisioner: &mut Provisioner) -> anyhow::Result<String> {
+fn dryrun(provisioner: &mut Provisioner, args: &Args) -> anyhow::Result<String> {
     let instance_id = provisioner.try_create_cheapest_instance_type(
         "test",
         "Ubuntu 26.04 Resolute Raccoon",
-        None,
+        args.instance_type.clone(),
+        args.zone.clone(),
     )?;
 
     let instance_json = provisioner
@@ -25,7 +26,8 @@ fn main() -> anyhow::Result<()> {
 
     let mut provisioner = Provisioner::new();
     if args.dryrun {
-        println!("{}", dryrun(&mut provisioner)?);
+        println!("{}", dryrun(&mut provisioner, &args)?);
+        return Ok(());
     }
 
     Ok(())
