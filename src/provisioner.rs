@@ -1,26 +1,46 @@
 use scaleway_rs::ServerType;
 
-use crate::provisioner::provider::Provider;
+use crate::provisioner::{provider::Provider, traits::provider_instance::ProviderInstance};
 
 mod provider;
 mod traits;
 
 pub struct Provisioner {
     provider: Provider,
-    worker_instance_ids: Vec<String>,
-    controller_instance_id: Option<String>,
 }
 
 impl Provisioner {
     pub fn new() -> Self {
         Self {
             provider: Provider::new(),
-            worker_instance_ids: vec![],
-            controller_instance_id: Option::None,
         }
     }
 
-    pub fn create_instance(&mut self, instance_type: Option<&str>) -> anyhow::Result<()> {
+    pub fn get_instance_by_id(&self, id: &str) -> Option<&dyn ProviderInstance> {
+        self.provider.get_created_instance(id)
+    }
+
+    pub fn cleanup(&mut self, id: &str) -> anyhow::Result<()> {
+        let zone = self
+            .provider
+            .get_created_instance(id)
+            .map(|z| z.zone().to_string());
+
+        match zone {
+            Some(zone) => self.provider.cleanup_instance(&zone, id),
+            _ => {
+                println!("Could not cleanup ID '{}': not found", id);
+                Ok(())
+            }
+        }
+    }
+
+    pub fn try_create_cheapest_instance_type(
+        &mut self,
+        instance_name: &str,
+        image_name: &str,
+        instance_type: Option<&str>,
+    ) -> anyhow::Result<String> {
         let provider = &mut self.provider;
         // TODO: should be a generic
         let mut instances: Vec<ServerType> = match instance_type.is_none() {
@@ -35,20 +55,17 @@ impl Provisioner {
 
             // we get the first, that's the cheapest one
             let instance = instances.remove(0);
-
             let instance_id = provider.create_instance(
                 &instance.location,
-                "test",
+                instance_name,
                 &instance.id,
-                "Ubuntu 26.04 Resolute Raccoon",
+                image_name,
                 instance.arch.as_str(),
             );
 
             if let Ok(id) = instance_id {
-                println!("Success!\n{:?}\nCleaning up", id);
-                provider.cleanup_instance(&instance.location, &id)?;
-                provider.cleanup_detached_volumes()?;
-                break;
+                println!("Created instance with ID: {:?}", id);
+                return Ok(id);
             } else {
                 println!(
                     "Failed to create instance with ID={}, trying next option",
@@ -56,7 +73,5 @@ impl Provisioner {
                 )
             }
         }
-
-        Ok(())
     }
 }

@@ -5,12 +5,13 @@ use scaleway_rs::{
 };
 
 use crate::provisioner::traits::has_id::HasId;
+use crate::provisioner::traits::provider_instance::{Instance, ProviderInstance};
 
 pub struct Provider {
     api: ScalewayApi,
     project: String,
     zones: Vec<String>,
-    instances: HashMap<String, ScalewayInstance>,
+    instances: HashMap<String, Instance<ScalewayInstance>>,
 }
 
 impl Provider {
@@ -48,6 +49,10 @@ impl Provider {
             }
         }
         Ok(result.into_values().collect::<Vec<T>>())
+    }
+
+    pub fn get_created_instance(&self, id: &str) -> Option<&dyn ProviderInstance> {
+        self.instances.get(id).map(|i| i as &dyn ProviderInstance)
     }
 
     fn get_images(&self) -> anyhow::Result<Vec<ScalewayImage>> {
@@ -108,7 +113,8 @@ impl Provider {
             .run()?;
 
         let instance_id = instance.id.clone();
-        self.instances.insert(instance_id.clone(), instance);
+        self.instances
+            .insert(instance_id.clone(), Instance(instance));
         Ok(instance_id)
     }
 
