@@ -223,7 +223,8 @@ in
   environment.systemPackages = lib.mkForce [
     fern
     pkgs.pkgsStatic.busybox
-    pkgs.runit
+    # static so glibc leaves the squashfs; the only glibc referrer left
+    pkgs.pkgsStatic.runit
   ];
 
   environment.etc = lib.mkMerge [
@@ -233,6 +234,9 @@ in
       # daemon disabled and drags bash-interactive+ncurses+readline into the
       # image — replace with an empty file
       "nix/nix.conf" = lib.mkForce { text = ""; };
+      # port/service name lookups: nothing in the image reads these
+      # (fern resolves ports numerically, busybox doesn't consult them)
+      "services".source = lib.mkForce pkgs.emptyFile;
       # qemu user-mode resolver; Scaleway deployments need their own resolver here
       "resolv.conf".text =
         "nameserver "
@@ -242,6 +246,8 @@ in
           2
           3
         ];
+      # fern's rustls-native-certs reads ca-certificates.crt only
+      "ssl/certs/ca-bundle.crt".source = lib.mkForce pkgs.emptyFile;
     }
     {
       "service/net/run".source = pkgs.writeScript "net-run" ''

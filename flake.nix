@@ -56,6 +56,14 @@
           CARGO_PROFILE_RELEASE_LTO = "true";
           CARGO_PROFILE_RELEASE_CODEGEN_UNITS = "1";
           CARGO_PROFILE_RELEASE_OPT_LEVEL = "z";
+          # appliance image: symbol table is dead weight in the squashfs;
+          # cargo's -Cstrip=symbols leaves .symtab behind with musl+LTO, and
+          # the cross stdenv ships no strip, so pull binutils in and strip
+          # in postInstall
+          nativeBuildInputs = [ pkgs.binutils ];
+          postInstall = ''
+            strip "$out/bin/fern"
+          '';
         };
         # appliance scaffold; it keeps its own nixpkgs pin because its modules
         # use lib.literalExample, dropped from this flake's nixos-unstable pin.
