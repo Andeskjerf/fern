@@ -6,6 +6,7 @@
     };
     nixpkgs.url = "nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    appliance.url = "github:cleverca22/not-os";
   };
 
   outputs =
@@ -14,6 +15,7 @@
       fenix,
       nixpkgs,
       flake-utils,
+      appliance,
     }:
     flake-utils.lib.eachDefaultSystem (
       system:
@@ -32,6 +34,16 @@
           cargo = buildToolchain;
           rustc = buildToolchain;
         };
+        # appliance scaffold; it keeps its own nixpkgs pin because its modules
+        # use lib.literalExample, dropped from this flake's nixos-unstable pin
+        applianceConfig =
+          (import "${appliance}/default.nix" {
+            nixpkgs = "${appliance.inputs.nixpkgs}";
+            system = "x86_64-linux";
+            configuration = import ./nixos/fern.nix {
+              fern = self.packages.${system}.default;
+            };
+          }).config;
       in
       {
         devShells.default = pkgs.mkShell {
@@ -45,19 +57,22 @@
           cargoLock.lockFile = ./Cargo.lock;
         };
 
-        nixosConfigurations.fern-worker = nixpkgs.lib.nixosSystem {
-          system = "${system}";
-          modules = [ 
-            ./nixos/fern-worker.nix
-            { nixpkgs.hostPlatform = system; }
-          ];
-          specialArgs = { inherit (self.packages.${system}) default; };
-        };
-
         packages = {
-          inherit (self.nixosConfigurations.${system}.fern-worker.config.system.build) image;
+          image = pkgs.callPackage ./nixos/disk-image.nix {
+            inherit (applianceConfig.system.build) kernel initialRamdisk squashfs;
+            kernelParams = toString applianceConfig.boot.kernelParams;
+          };
+          image-qcow2 = pkgs.runCommand "fern-image.qcow2" { } ''
+            ${pkgs.qemu-utils}/bin/qemu-img convert -f raw -O qcow2 -c \
+              ${self.packages.${system}.image} $out
+          '';
           run-image = pkgs.callPackage ./run-image.nix {
-            inherit (self.nixosConfigurations.${system}.fern-worker.config.system.build) image;
+            inherit (self.packages.${system}.image.passthru)
+              kernel
+              squashfs
+              kernelParams
+              ;
+            initrd = self.packages.${system}.image.passthru.initialRamdisk;
           };
         };
       }

@@ -1,5 +1,24 @@
 {
   "nodes": {
+    "appliance": {
+      "inputs": {
+        "firmware": "firmware",
+        "nixpkgs": "nixpkgs"
+      },
+      "locked": {
+        "lastModified": 1783338498,
+        "narHash": "sha256-/epqSmeb9ZVhSTPavQXMszNmjSfIVKNqgS0V8mvAuag=",
+        "owner": "cleverca22",
+        "repo": "not-os",
+        "rev": "fa6ba60ab02ac3a82c27784a3b7e8eda13f7fae8",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cleverca22",
+        "repo": "not-os",
+        "type": "github"
+      }
+    },
     "fenix": {
       "inputs": {
         "nixpkgs": [
@@ -18,6 +37,22 @@
       "original": {
         "owner": "nix-community",
         "repo": "fenix",
+        "type": "github"
+      }
+    },
+    "firmware": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1697732010,
+        "narHash": "sha256-kGXbqkqHCPU2Xz6az3LtdAccVzGtlq+vnTLiR3Xl9+8=",
+        "owner": "raspberrypi",
+        "repo": "firmware",
+        "rev": "ce3a0b4197eaf311ba0734efdb9f5bdedefe5e27",
+        "type": "github"
+      },
+      "original": {
+        "owner": "raspberrypi",
+        "repo": "firmware",
         "type": "github"
       }
     },
@@ -41,6 +76,22 @@
     },
     "nixpkgs": {
       "locked": {
+        "lastModified": 1780902259,
+        "narHash": "sha256-q8yYEC5f1mFlQO9RGna4LTc9QrcvWunX6FYp83munkQ=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "bd0ff2d3eac24699c3664d5966b9ef36f388e2ca",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-26.05",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_2": {
+      "locked": {
         "lastModified": 1788531059,
         "narHash": "sha256-/Mz6ovEL+KZ9b0UkWEBd/DtmODXuXW3FhNnuGQYghvg=",
         "rev": "801bef6abd86b91e51083066b83fb354a11fc640",
@@ -55,9 +106,10 @@
     },
     "root": {
       "inputs": {
+        "appliance": "appliance",
         "fenix": "fenix",
         "flake-utils": "flake-utils",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs_2"
       }
     },
     "rust-analyzer-src": {
