@@ -7,11 +7,14 @@
     nixpkgs.url = "nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     appliance.url = "github:cleverca22/not-os";
+    # NB: crane's flake has no inputs of its own; mkLib takes pkgs explicitly
+    crane.url = "github:ipetkov/crane";
   };
 
   outputs =
     {
       self,
+      crane,
       fenix,
       nixpkgs,
       flake-utils,
@@ -30,29 +33,30 @@
           "rust-analyzer"
         ];
         buildToolchain = fenix.packages.${system}.stable.minimalToolchain;
-        rustPlatform = pkgs.makeRustPlatform {
-          cargo = buildToolchain;
-          rustc = buildToolchain;
-        };
-        # static musl build for the image; packages.default stays dynamic for dev.
-        # fenix provides the musl std for the GNU-hosted rustc; the cross pkgs'
-        # musl stdenv supplies the linker (hooks inject --target from the
-        # stdenv target platform, env overrides don't stick)
-        muslRustPlatform = pkgs.pkgsStatic.makeRustPlatform {
-          cargo = fenix.packages.${system}.combine [
+        # crane splits dependency builds (cargoArtifacts) into their own
+        # derivations, so crate-source edits only rebuild the crate
+        craneLib = (crane.mkLib pkgs).overrideToolchain (p: buildToolchain);
+        # static musl build for the image; packages.default stays dynamic for
+        # dev. crane is bound to the cross pkgsStatic set so its cross env
+        # wires CARGO_BUILD_TARGET / linker / cc vars from the musl stdenv
+        # (aws-lc-sys + ring need a musl C toolchain); fenix provides the
+        # musl std for the GNU-hosted rustc
+        muslCraneLib = (crane.mkLib pkgs.pkgsStatic).overrideToolchain (
+          p:
+          fenix.packages.${system}.combine [
             buildToolchain
             fenix.packages.${system}.targets.x86_64-unknown-linux-musl.stable.rust-std
-          ];
-          rustc = fenix.packages.${system}.combine [
-            buildToolchain
-            fenix.packages.${system}.targets.x86_64-unknown-linux-musl.stable.rust-std
-          ];
-        };
-        fern-static = muslRustPlatform.buildRustPackage {
+          ]
+        );
+        # cargo sources only: edits to nixos/, README, run-image.nix etc.
+        # don't invalidate the Rust builds (the appliance/image code keeps
+        # using unfiltered ./. paths, untouched)
+        fernSrc = craneLib.cleanCargoSource ./.;
+        fern-static = muslCraneLib.buildPackage {
           pname = "fern";
           version = "0.1.0";
-          src = ./.;
-          cargoLock.lockFile = ./Cargo.lock;
+          src = fernSrc;
+          strictDeps = true;
           CARGO_PROFILE_RELEASE_LTO = "true";
           CARGO_PROFILE_RELEASE_CODEGEN_UNITS = "1";
           CARGO_PROFILE_RELEASE_OPT_LEVEL = "z";
@@ -91,11 +95,24 @@
           packages = [ devToolchain ];
         };
 
-        packages.default = rustPlatform.buildRustPackage {
+        apps.fern-with-image = {
+          type = "app";
+          # fern only reads the image (uploads it to the provider), so the
+          # read-only store path is enough; referencing it makes nix build
+          # image-qcow2 before the app runs
+          program = toString (
+            pkgs.writeShellScriptBin "fern-with-image" ''
+              exec ${self.packages.${system}.fern-static}/bin/fern \
+                ${self.packages.${system}.image-qcow2}
+            ''
+          );
+        };
+
+        packages.default = craneLib.buildPackage {
           pname = "fern";
           version = "0.1.0";
-          src = ./.;
-          cargoLock.lockFile = ./Cargo.lock;
+          src = fernSrc;
+          strictDeps = true;
         };
 
         packages = {
