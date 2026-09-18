@@ -7,6 +7,7 @@ use scaleway_rs::{
 
 use crate::provisioner::traits::has_id::HasId;
 use crate::provisioner::traits::provider_instance::{Instance, ProviderInstance};
+use crate::storage::s3_bucket::S3BucketStorage;
 
 const SCALEWAY_ZONES: [&str; 8] = [
     "fr-par-1", "fr-par-2", "nl-ams-1", "nl-ams-2", "nl-ams-3", "pl-waw-1", "pl-waw-2", "pl-waw-3",
@@ -17,6 +18,7 @@ pub struct ScalewayProvider {
     api: ScalewayApi,
     project: String,
     instances: HashMap<String, Instance<ScalewayInstance>>,
+    s3: Option<S3BucketStorage>,
 }
 
 impl ScalewayProvider {
@@ -30,7 +32,19 @@ impl ScalewayProvider {
             api: ScalewayApi::new(api_key),
             project,
             instances: HashMap::new(),
+            s3: None, // init later once we know what zone we're using
         }
+    }
+
+    fn init_s3(&mut self, zone: &str) -> anyhow::Result<()> {
+        if self.s3.is_some() {
+            return Err(anyhow!(
+                "Unable to initialize Scaleway provider with S3: already initialized"
+            ));
+        }
+
+        self.s3 = Some(S3BucketStorage::new("scw.cloud", zone)?);
+        Ok(())
     }
 
     fn get_options_for_all_zones<T: HasId>(

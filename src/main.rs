@@ -3,6 +3,7 @@ use clap::Parser;
 
 mod args;
 mod provisioner;
+mod storage;
 
 fn dryrun(provisioner: &mut Provisioner, args: &Args) -> anyhow::Result<String> {
     let instance_id = provisioner.try_create_cheapest_instance_type(

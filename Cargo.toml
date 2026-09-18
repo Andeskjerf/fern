@@ -7,6 +7,7 @@ edition = "2024"
 anyhow = "1.0.104"
 clap = { version = "4.6.4", features = ["derive"] }
 dotenv = "0.15.0"
+s3 = { version = "0.1.36", features = ["blocking"] }
 scaleway-rs = {version = "0.2.8", features = ["blocking"]}
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
