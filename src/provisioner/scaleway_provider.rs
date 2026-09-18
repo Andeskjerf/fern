@@ -7,14 +7,14 @@ use scaleway_rs::{
 use crate::provisioner::traits::has_id::HasId;
 use crate::provisioner::traits::provider_instance::{Instance, ProviderInstance};
 
-pub struct Provider {
+pub struct ScalewayProvider {
     api: ScalewayApi,
     project: String,
     zones: Vec<String>,
     instances: HashMap<String, Instance<ScalewayInstance>>,
 }
 
-impl Provider {
+impl ScalewayProvider {
     pub fn new() -> Self {
         let api_key = dotenv::var("SCW_SECRET_KEY")
             .expect("unable to initialize Scaleway provider: no SCW_SECRET_KEY in .env");
@@ -56,7 +56,7 @@ impl Provider {
     }
 
     fn get_images(&self) -> anyhow::Result<Vec<ScalewayImage>> {
-        let mut result = Provider::get_options_for_all_zones::<ScalewayImage>(&self.zones, |z| {
+        let mut result = ScalewayProvider::get_options_for_all_zones::<ScalewayImage>(&self.zones, |z| {
             self.api.list_images(z).run()
         })?;
         result.sort_by(|a, b| a.name.cmp(&b.name));
@@ -65,7 +65,7 @@ impl Provider {
 
     pub fn get_instance_types(&self, zone: Option<String>) -> anyhow::Result<Vec<ServerType>> {
         let mut result: Vec<ServerType> =
-            Provider::get_options_for_all_zones::<ServerType>(&self.zones, |z| {
+            ScalewayProvider::get_options_for_all_zones::<ServerType>(&self.zones, |z| {
                 self.api.get_server_types(z)
             })?
             .into_iter()
@@ -95,7 +95,7 @@ impl Provider {
     }
 
     pub fn get_volumes(&self) -> anyhow::Result<Vec<ScalewayVolume>> {
-        Provider::get_options_for_all_zones(&self.zones, |z| self.api.list_volumes(z).run())
+        ScalewayProvider::get_options_for_all_zones(&self.zones, |z| self.api.list_volumes(z).run())
     }
 
     pub fn create_instance(
@@ -107,8 +107,8 @@ impl Provider {
         arch: &str,
     ) -> anyhow::Result<String> {
         let valid_images = self.get_images()?;
-        Provider::assert_image_in_list(&valid_images, image_name);
-        let image = Provider::find_matching_image(&valid_images, zone, image_name, arch);
+        ScalewayProvider::assert_image_in_list(&valid_images, image_name);
+        let image = ScalewayProvider::find_matching_image(&valid_images, zone, image_name, arch);
 
         let instance = self
             .api

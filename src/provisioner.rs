@@ -1,19 +1,25 @@
 use scaleway_rs::ServerType;
 
-use crate::provisioner::{provider::Provider, traits::provider_instance::ProviderInstance};
+use crate::provisioner::{
+    scaleway_provider::ScalewayProvider, traits::provider_instance::ProviderInstance,
+};
 
-mod provider;
+mod scaleway_provider;
 mod traits;
 
 pub struct Provisioner {
-    provider: Provider,
+    provider: ScalewayProvider,
 }
 
 impl Provisioner {
     pub fn new() -> Self {
         Self {
-            provider: Provider::new(),
+            provider: ScalewayProvider::new(),
         }
+    }
+
+    pub fn upload_image(&self) -> anyhow::Result<()> {
+        Ok(())
     }
 
     pub fn get_instance_by_id(&self, id: &str) -> Option<&dyn ProviderInstance> {
