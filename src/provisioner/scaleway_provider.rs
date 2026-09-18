@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::error::Error;
 
 use anyhow::anyhow;
 use scaleway_rs::{
@@ -21,6 +22,22 @@ pub struct ScalewayProvider {
     s3: Option<S3BucketStorage>,
 }
 
+#[derive(Debug)]
+enum InitS3Error {
+    AlreadyExists,
+    Error(s3::Error),
+}
+
+impl Error for InitS3Error {}
+impl std::fmt::Display for InitS3Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InitS3Error::AlreadyExists => write!(f, "S3 backend is already initialized"),
+            InitS3Error::Error(error) => write!(f, "S3 error: {}", error),
+        }
+    }
+}
+
 impl ScalewayProvider {
     pub fn new() -> Self {
         let api_key = dotenv::var("SCW_SECRET_KEY")
@@ -36,14 +53,31 @@ impl ScalewayProvider {
         }
     }
 
-    fn init_s3(&mut self, zone: &str) -> anyhow::Result<()> {
+    fn init_s3(&mut self, zone: &str) -> anyhow::Result<(), InitS3Error> {
+        println!("Initializing S3 backend for Scaleway provider");
         if self.s3.is_some() {
-            return Err(anyhow!(
-                "Unable to initialize Scaleway provider with S3: already initialized"
-            ));
+            return Err(InitS3Error::AlreadyExists);
         }
+        match S3BucketStorage::new("https://scw.cloud", zone) {
+            Ok(s3) => {
+                self.s3 = Some(s3);
+                println!("Initialized S3 backend for Scaleway: {}", self.s3.is_some());
+                Ok(())
+            }
+            Err(err) => {
+                eprintln!("Failed to initialize S3 backend for Scaleway: {}", err);
+                Err(InitS3Error::Error(err))
+            }
+        }
+    }
 
-        self.s3 = Some(S3BucketStorage::new("scw.cloud", zone)?);
+    pub fn list_images(&mut self, zone: &str) -> anyhow::Result<()> {
+        if let Err(InitS3Error::Error(err)) = self.init_s3(zone) {
+            panic!("Failed to initialize S3 backend: {}", err);
+        }
+        let s3 = self.s3.as_ref().unwrap();
+
+        s3.list_images()?;
         Ok(())
     }
 
@@ -72,7 +106,7 @@ impl ScalewayProvider {
         Ok(result)
     }
 
-    pub fn get_instance_types(&self, zone: Option<String>) -> anyhow::Result<Vec<ServerType>> {
+    pub fn get_instance_types(&self, zone: &Option<String>) -> anyhow::Result<Vec<ServerType>> {
         let mut result: Vec<ServerType> =
             ScalewayProvider::get_options_for_all_zones::<ServerType>(|z| {
                 self.api.get_server_types(z)
@@ -94,7 +128,7 @@ impl ScalewayProvider {
     pub fn get_instance_type(
         &self,
         instance_id: &str,
-        zone: Option<String>,
+        zone: &Option<String>,
     ) -> anyhow::Result<ServerType> {
         Ok(self
             .get_instance_types(zone)?

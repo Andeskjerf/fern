@@ -12,13 +12,29 @@ mod traits;
 
 pub struct Provisioner {
     provider: ScalewayProvider,
+    image_path: String,
+    zone: Option<String>, // the zone / region we wish to use
 }
 
 impl Provisioner {
-    pub fn new() -> Self {
+    pub fn new(image_path: String) -> Self {
+        let zone = dotenv::var("ZONE");
         Self {
             provider: ScalewayProvider::new(),
+            image_path,
+            zone: zone.ok(),
         }
+    }
+
+    fn get_zone(&self) -> &str {
+        self.zone.as_ref().expect("No zone provided!")
+    }
+
+    /// Checks if worker image stored at the provider is the latest
+    pub fn has_image_changed(&mut self) -> anyhow::Result<()> {
+        let zone = String::from(self.get_zone());
+        let images = self.provider.list_images(&zone)?;
+        Ok(())
     }
 
     pub fn upload_image(&self) -> anyhow::Result<()> {
@@ -49,13 +65,12 @@ impl Provisioner {
         instance_name: &str,
         image_name: &str,
         instance_type: Option<String>,
-        zone: Option<String>,
     ) -> anyhow::Result<String> {
         let provider = &mut self.provider;
         // TODO: should be a generic
         let mut instances: Vec<ServerType> = match instance_type.is_none() {
-            true => provider.get_instance_types(zone)?,
-            false => vec![provider.get_instance_type(&instance_type.unwrap(), zone)?],
+            true => provider.get_instance_types(&self.zone)?,
+            false => vec![provider.get_instance_type(&instance_type.unwrap(), &self.zone)?],
         };
 
         loop {
@@ -90,7 +105,6 @@ impl Provisioner {
             "test",
             "Ubuntu 26.04 Resolute Raccoon",
             args.instance_type.clone(),
-            args.zone.clone(),
         )?;
 
         let instance_json = self
