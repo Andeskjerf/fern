@@ -100,7 +100,7 @@
           # fern only reads the image (uploads it to the provider), so the
           # read-only store path is enough; referencing it makes nix build
           # image-qcow2 before the app runs
-          program = toString (
+          program = pkgs.lib.getExe (
             pkgs.writeShellScriptBin "fern-with-image" ''
               exec ${self.packages.${system}.fern-static}/bin/fern \
                 ${self.packages.${system}.image-qcow2}
