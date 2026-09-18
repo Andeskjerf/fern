@@ -1,7 +1,10 @@
 use scaleway_rs::ServerType;
 
-use crate::provisioner::{
-    scaleway_provider::ScalewayProvider, traits::provider_instance::ProviderInstance,
+use crate::{
+    args::Args,
+    provisioner::{
+        scaleway_provider::ScalewayProvider, traits::provider_instance::ProviderInstance,
+    },
 };
 
 mod scaleway_provider;
@@ -80,5 +83,22 @@ impl Provisioner {
                 )
             }
         }
+    }
+
+    pub fn dryrun(&mut self, args: &Args) -> anyhow::Result<String> {
+        let instance_id = self.try_create_cheapest_instance_type(
+            "test",
+            "Ubuntu 26.04 Resolute Raccoon",
+            args.instance_type.clone(),
+            args.zone.clone(),
+        )?;
+
+        let instance_json = self
+            .get_instance_by_id(&instance_id)
+            .ok_or_else(|| anyhow::anyhow!("instance {instance_id} not found"))?
+            .to_json();
+
+        self.cleanup(&instance_id)?;
+        Ok(instance_json)
     }
 }
