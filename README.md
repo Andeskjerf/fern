@@ -50,6 +50,8 @@ The output `fern-with-image` handles all steps required to run the application.
 nix run .#fern-with-image
 ```
 
+Instructions for running will be updated as new features land. In the future, it should be possible to provide for example a `.json` path that holds the instructions & storage schema for scraping.
+
 ## 🏗️ Highlevel overview
 
 ### 📡 Communication
