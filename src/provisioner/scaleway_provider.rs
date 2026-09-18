@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use anyhow::anyhow;
 use scaleway_rs::{
     ScalewayApi, ScalewayError, ScalewayImage, ScalewayInstance, ScalewayVolume, ServerType,
 };
@@ -7,10 +8,14 @@ use scaleway_rs::{
 use crate::provisioner::traits::has_id::HasId;
 use crate::provisioner::traits::provider_instance::{Instance, ProviderInstance};
 
+const SCALEWAY_ZONES: [&str; 8] = [
+    "fr-par-1", "fr-par-2", "nl-ams-1", "nl-ams-2", "nl-ams-3", "pl-waw-1", "pl-waw-2", "pl-waw-3",
+];
+
+// TODO: add generic trait for `Provider`
 pub struct ScalewayProvider {
     api: ScalewayApi,
     project: String,
-    zones: Vec<String>,
     instances: HashMap<String, Instance<ScalewayInstance>>,
 }
 
@@ -18,31 +23,21 @@ impl ScalewayProvider {
     pub fn new() -> Self {
         let api_key = dotenv::var("SCW_SECRET_KEY")
             .expect("unable to initialize Scaleway provider: no SCW_SECRET_KEY in .env");
-        let env_zones = dotenv::var("SCW_ZONES")
-            .expect("unable to initialize Scaleway provider: no SCW_ZONES in .env");
         let project = dotenv::var("SCW_DEFAULT_PROJECT_ID")
             .expect("unable to initialize Scaleway provider: no SCW_DEFAULT_PROJECT_ID in .env");
 
-        let zones: Vec<&str> = env_zones.split(" ").collect();
-        assert!(
-            !zones.is_empty(),
-            "Scaleway zones are empty: either SCW_ZONE is malformed, or nothing was passed. Add all zones you want to check and separate with spaces"
-        );
-
         Self {
             api: ScalewayApi::new(api_key),
-            zones: zones.iter().map(|s| s.to_string()).collect(),
             project,
             instances: HashMap::new(),
         }
     }
 
     fn get_options_for_all_zones<T: HasId>(
-        zones: &Vec<String>,
         func: impl Fn(&str) -> Result<Vec<T>, ScalewayError>,
     ) -> anyhow::Result<Vec<T>> {
         let mut result: HashMap<String, T> = HashMap::new();
-        for z in zones {
+        for z in SCALEWAY_ZONES {
             let func_value = func(z)?;
             for i in func_value {
                 result.insert(i.id().to_string(), i);
@@ -56,7 +51,7 @@ impl ScalewayProvider {
     }
 
     fn get_images(&self) -> anyhow::Result<Vec<ScalewayImage>> {
-        let mut result = ScalewayProvider::get_options_for_all_zones::<ScalewayImage>(&self.zones, |z| {
+        let mut result = ScalewayProvider::get_options_for_all_zones::<ScalewayImage>(|z| {
             self.api.list_images(z).run()
         })?;
         result.sort_by(|a, b| a.name.cmp(&b.name));
@@ -65,7 +60,7 @@ impl ScalewayProvider {
 
     pub fn get_instance_types(&self, zone: Option<String>) -> anyhow::Result<Vec<ServerType>> {
         let mut result: Vec<ServerType> =
-            ScalewayProvider::get_options_for_all_zones::<ServerType>(&self.zones, |z| {
+            ScalewayProvider::get_options_for_all_zones::<ServerType>(|z| {
                 self.api.get_server_types(z)
             })?
             .into_iter()
@@ -95,7 +90,7 @@ impl ScalewayProvider {
     }
 
     pub fn get_volumes(&self) -> anyhow::Result<Vec<ScalewayVolume>> {
-        ScalewayProvider::get_options_for_all_zones(&self.zones, |z| self.api.list_volumes(z).run())
+        ScalewayProvider::get_options_for_all_zones(|z| self.api.list_volumes(z).run())
     }
 
     pub fn create_instance(
